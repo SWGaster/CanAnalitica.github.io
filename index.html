@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BreastScan AI — Diagnóstico de Cáncer de Mama</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #050a0f;
+    --surface:   #0c1520;
+    --surface2:  #101c2a;
+    --border:    #1a2e42;
+    --accent:    #00d4aa;
+    --accent2:   #0099ff;
+    --danger:    #ff4f6d;
+    --warn:      #ffaa00;
+    --text:      #e2eaf0;
+    --muted:     #5a7a94;
+    --font-mono: 'Space Mono', monospace;
+    --font-body: 'DM Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    background: rgba(5,10,15,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  .logo-pulse {
+    width: 36px; height: 36px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .logo-pulse::after {
+    content: '';
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse-inner 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(0,212,170,0.4); }
+    50%      { box-shadow: 0 0 0 10px rgba(0,212,170,0); }
+  }
+  @keyframes pulse-inner {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.6; transform: scale(0.8); }
+  }
+  header h1 { font-family: var(--font-mono); font-size: 1.05rem; color: var(--accent); letter-spacing: 0.08em; }
+  header span { font-size: 0.75rem; color: var(--muted); margin-left: auto; font-family: var(--font-mono); }
+
+  /* ── LAYOUT ── */
+  .shell { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 65px); }
+
+  /* ── SIDEBAR ── */
+  aside {
+    border-right: 1px solid var(--border);
+    padding: 28px 20px;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 0.63rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 6px 12px;
+    margin-top: 16px;
+  }
+  .section-label:first-child { margin-top: 0; }
+  .nav-btn {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .nav-btn:hover  { color: var(--text); background: var(--surface2); border-color: var(--border); }
+  .nav-btn.active { color: var(--accent); background: rgba(0,212,170,0.07); border-color: rgba(0,212,170,0.25); }
+  .nav-btn .icon  { font-size: 1rem; width: 20px; text-align: center; }
+
+  /* Model selector */
+  .model-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 4px;
+  }
+  .model-card:hover  { border-color: var(--accent2); }
+  .model-card.active { border-color: var(--accent); background: rgba(0,212,170,0.06); }
+  .model-card-name   { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+  .model-card-acc    { font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent); margin-top: 2px; }
+
+  /* ── MAIN ── */
+  main { padding: 36px 44px; overflow-y: auto; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+  }
+  .card-title {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  /* ── METRICS GRID ── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .metric-tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 14px;
+    text-align: center;
+  }
+  .metric-tile .val {
+    font-family: var(--font-mono);
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+  }
+  .metric-tile .lbl {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── FEATURES FORM ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .feat-group { display: flex; flex-direction: column; gap: 5px; }
+  .feat-group label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .feat-group input[type="number"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    padding: 8px 10px;
+    width: 100%;
+    transition: border-color 0.2s;
+    -moz-appearance: textfield;
+  }
+  .feat-group input::-webkit-outer-spin-button,
+  .feat-group input::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .feat-group input:focus { outline: none; border-color: var(--accent); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 11px 22px;
+    border-radius: 8px;
+    border: none;
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: #00f0c0; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,212,170,0.3); }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent2); }
+
+  /* ── PREDICTION RESULT ── */
+  .result-box {
+    display: none;
+    border-radius: 14px;
+    padding: 26px 30px;
+    margin-top: 24px;
+    border: 1px solid;
+    position: relative;
+    overflow: hidden;
+  }
+  .result-box.benign  { border-color: var(--accent); background: rgba(0,212,170,0.07); }
+  .result-box.malign  { border-color: var(--danger);  background: rgba(255,79,109,0.07); }
+  .result-box.show    { display: flex; align-items: center; gap: 24px; animation: fadeIn 0.4s; }
+  .result-icon  { font-size: 3rem; }
+  .result-label { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700; }
+  .result-sub   { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+  .result-prob-bar {
+    margin-top: 12px;
+    height: 8px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+    width: 260px;
+  }
+  .result-prob-fill { height: 100%; border-radius: 99px; transition: width 0.8s cubic-bezier(0.22,1,0.36,1); }
+
+  /* ── CONFUSION MATRIX ── */
+  .cm-wrapper {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .cm-table-container { position: relative; }
+  .cm-axis-y {
+    position: absolute;
+    left: -90px; top: 50%;
+    transform: translateY(-50%) rotate(-90deg);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+  table.cm {
+    border-collapse: separate;
+    border-spacing: 6px;
+    min-width: 280px;
+  }
+  table.cm th {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-align: center;
+    padding: 6px 12px;
+  }
+  table.cm td {
+    border-radius: 10px;
+    width: 100px;
+    height: 90px;
+    text-align: center;
+    vertical-align: middle;
+    font-family: var(--font-mono);
+  }
+  .cm-tp { background: rgba(0,212,170,0.15); border: 1px solid rgba(0,212,170,0.3); }
+  .cm-tn { background: rgba(0,153,255,0.12); border: 1px solid rgba(0,153,255,0.25); }
+  .cm-fp { background: rgba(255,170,0,0.10);  border: 1px solid rgba(255,170,0,0.25); }
+  .cm-fn { background: rgba(255,79,109,0.12); border: 1px solid rgba(255,79,109,0.3); }
+  .cm-val  { font-size: 2rem; font-weight: 700; display: block; }
+  .cm-lbl  { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .cm-axis-x {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding-top: 8px;
+  }
+
+  /* ── BATCH UPLOAD ── */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 20px;
+  }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--accent); background: rgba(0,212,170,0.04); }
+  .drop-zone p { color: var(--muted); font-size: 0.875rem; margin-top: 8px; }
+  .drop-zone .icon { font-size: 2rem; }
+
+  /* Progress bar for batch */
+  .batch-progress {
+    display: none;
+    background: var(--border);
+    border-radius: 99px;
+    height: 6px;
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .batch-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 99px;
+    transition: width 0.3s;
+  }
+
+  /* ── STATUS / LOADING ── */
+  #loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(5,10,15,0.9);
+    display: grid; place-items: center;
+    z-index: 999;
+  }
+  .spinner {
+    width: 60px; height: 60px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); margin-top: 16px; text-align: center; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 28px; right: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 0.85rem;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
+    z-index: 200;
+    max-width: 300px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+  /* ── ABOUT ── */
+  .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .flow-step {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-step:last-child { border-bottom: none; }
+  .step-num {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--accent);
+    background: rgba(0,212,170,0.1);
+    border: 1px solid rgba(0,212,170,0.2);
+    border-radius: 6px;
+    width: 36px; height: 36px;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .step-title { font-size: 0.875rem; font-weight: 600; color: var(--text); }
+  .step-desc  { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    border-radius: 5px;
+    margin: 2px;
+  }
+  .tag-green  { background: rgba(0,212,170,0.1);  color: var(--accent); border: 1px solid rgba(0,212,170,0.2); }
+  .tag-blue   { background: rgba(0,153,255,0.1);  color: var(--accent2); border: 1px solid rgba(0,153,255,0.2); }
+  .tag-red    { background: rgba(255,79,109,0.1); color: var(--danger); border: 1px solid rgba(255,79,109,0.2); }
+
+  .section-title {
+    font-family: var(--font-mono);
+    font-size: 1.2rem;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .section-sub {
+    font-size: 0.875rem;
+    color: var(--muted);
+    margin-bottom: 28px;
+    max-width: 500px;
+  }
+
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; }
+    aside { border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; padding: 14px; }
+    main { padding: 20px; }
+    .features-grid { grid-template-columns: 1fr 1fr; }
+    .metrics-grid  { grid-template-columns: repeat(3,1fr); }
+    .about-grid    { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-overlay">
+  <div style="text-align:center">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">Cargando modelos de IA...</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<header>
+  <div class="logo-pulse"></div>
+  <h1>BreastScan AI</h1>
+  <span id="model-status">Cargando modelo...</span>
+</header>
+
+<div class="shell">
+
+  <!-- ── SIDEBAR ── -->
+  <aside>
+    <div class="section-label">Navegación</div>
+    <button class="nav-btn active" onclick="showTab('individual')" data-tab="individual">
+      <span class="icon">🔬</span> Predicción Individual
+    </button>
+    <button class="nav-btn" onclick="showTab('batch')" data-tab="batch">
+      <span class="icon">📊</span> Predicción por Lotes
+    </button>
+    <button class="nav-btn" onclick="showTab('metrics')" data-tab="metrics">
+      <span class="icon">📈</span> Métricas de Desempeño
+    </button>
+    <button class="nav-btn" onclick="showTab('about')" data-tab="about">
+      <span class="icon">📖</span> Sobre el Proyecto
+    </button>
+
+    <div class="section-label">Modelo Activo</div>
+    <div class="model-card active" id="card-lr" onclick="selectModel('lr')">
+      <div class="model-card-name">Regresión Logística</div>
+      <div class="model-card-acc" id="lr-acc-side">Cargando...</div>
+    </div>
+    <div class="model-card" id="card-mlp" onclick="selectModel('mlp')">
+      <div class="model-card-name">Red Neuronal (MLP)</div>
+      <div class="model-card-acc" id="mlp-acc-side">Cargando...</div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <main>
+
+    <!-- ══ INDIVIDUAL ══ -->
+    <div id="tab-individual" class="tab-panel active">
+      <div class="section-title">Predicción Individual</div>
+      <div class="section-sub">Ingrese los valores de las 30 características celulares del tumor para obtener una predicción inmediata.</div>
+
+      <div class="card">
+        <div class="card-title">📐 Características Medias (Media)</div>
+        <div class="features-grid" id="grid-mean"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📐 Error Estándar</div>
+        <div class="features-grid" id="grid-se"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📐 Peores Valores (Worst)</div>
+        <div class="features-grid" id="grid-worst"></div>
+      </div>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="runIndividual()">🔮 Predecir Diagnóstico</button>
+        <button class="btn btn-secondary" onclick="fillDefaults()">↺ Valores por Defecto</button>
+        <button class="btn btn-secondary" onclick="fillSample('M')">⚠ Ejemplo Maligno</button>
+        <button class="btn btn-secondary" onclick="fillSample('B')">✅ Ejemplo Benigno</button>
+      </div>
+
+      <div id="result-individual" class="result-box">
+        <div class="result-icon" id="res-icon"></div>
+        <div>
+          <div class="result-label" id="res-label"></div>
+          <div class="result-sub" id="res-sub"></div>
+          <div class="result-prob-bar" style="margin-top:12px">
+            <div class="result-prob-fill" id="res-fill" style="width:0%"></div>
+          </div>
+          <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--muted); margin-top:5px" id="res-prob-text"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BATCH ══ -->
+    <div id="tab-batch" class="tab-panel">
+      <div class="section-title">Predicción por Lotes</div>
+      <div class="section-sub">Evalúe el modelo sobre el conjunto de prueba (114 muestras) o cargue su propio archivo CSV compatible con WDBC.</div>
+
+      <div class="card">
+        <div class="card-title">📂 Fuente de Datos</div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+          <button class="btn btn-primary" onclick="runBatchTest()">▶ Usar Conjunto de Prueba (114 muestras)</button>
+          <label class="btn btn-secondary" style="cursor:pointer">
+            📁 Cargar CSV Propio
+            <input type="file" id="csv-upload" accept=".csv,.data" style="display:none" onchange="loadCSV(event)">
+          </label>
+        </div>
+
+        <!-- Drop zone -->
+        <div class="drop-zone" id="drop-zone" ondragover="event.preventDefault(); this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+          <div class="icon">📄</div>
+          <p>Arrastra aquí un archivo .csv o .data con formato WDBC</p>
+          <p style="font-size:0.75rem; margin-top:4px;">ID, Diagnóstico, 30 características numéricas</p>
+        </div>
+
+        <div class="batch-progress" id="batch-progress">
+          <div class="batch-progress-fill" id="batch-fill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="batch-results" style="display:none;">
+        <div class="metrics-grid" id="batch-metrics-grid"></div>
+        <div class="card">
+          <div class="card-title">🔲 Matriz de Confusión — <span id="cm-model-name">—</span></div>
+          <div class="cm-wrapper" style="padding-left:100px; position:relative;">
+            <div style="position:absolute; left:0; top:50%; transform:translateY(-50%) rotate(-90deg); font-family:var(--font-mono); font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; white-space:nowrap;">
+              Valor Real
+            </div>
+            <div>
+              <table class="cm" id="cm-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Pred. Benigno</th>
+                    <th>Pred. Maligno</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th style="text-align:right; padding-right:10px;">Real<br>Benigno</th>
+                    <td class="cm-tn" id="cm-tn"><span class="cm-val">—</span><span class="cm-lbl">Verdadero Neg.</span></td>
+                    <td class="cm-fp" id="cm-fp"><span class="cm-val">—</span><span class="cm-lbl">Falso Pos.</span></td>
+                  </tr>
+                  <tr>
+                    <th style="text-align:right; padding-right:10px;">Real<br>Maligno</th>
+                    <td class="cm-fn" id="cm-fn"><span class="cm-val">—</span><span class="cm-lbl">Falso Neg.</span></td>
+                    <td class="cm-tp" id="cm-tp"><span class="cm-val">—</span><span class="cm-lbl">Verdadero Pos.</span></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="cm-axis-x">Valor Predicho</div>
+            </div>
+            <div style="font-size:0.8rem; color:var(--muted); max-width:220px; line-height:1.7;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><span style="width:12px;height:12px;background:rgba(0,212,170,0.3);border-radius:3px;display:inline-block;"></span> Verdadero Negativo (Benigno correcto)</div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><span style="width:12px;height:12px;background:rgba(0,153,255,0.3);border-radius:3px;display:inline-block;"></span> Verdadero Positivo (Maligno correcto)</div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><span style="width:12px;height:12px;background:rgba(255,170,0,0.3);border-radius:3px;display:inline-block;"></span> Falso Positivo (error, dice Maligno)</div>
+              <div style="display:flex; align-items:center; gap:8px;"><span style="width:12px;height:12px;background:rgba(255,79,109,0.3);border-radius:3px;display:inline-block;"></span> Falso Negativo (error, dice Benigno)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ METRICS ══ -->
+    <div id="tab-metrics" class="tab-panel">
+      <div class="section-title">Métricas de Desempeño</div>
+      <div class="section-sub">Comparativa completa entre los dos modelos entrenados con el dataset WDBC (569 muestras, test=20%).</div>
+
+      <div class="metrics-grid" id="metrics-lr-grid"></div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-title">⚖ Comparativa de Modelos</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="text-align:left;padding:10px 14px;font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Métrica</th>
+                <th style="text-align:center;padding:10px 14px;font-family:var(--font-mono);font-size:0.65rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;">Regresión Logística</th>
+                <th style="text-align:center;padding:10px 14px;font-family:var(--font-mono);font-size:0.65rem;color:var(--accent2);text-transform:uppercase;letter-spacing:0.08em;">Red Neuronal (MLP)</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📝 Interpretación de Métricas</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+          <div>
+            <p style="font-weight:600; margin-bottom:8px;">¿Por qué el Recall importa más?</p>
+            <p style="color:var(--muted); font-size:0.85rem;">En diagnóstico de cáncer, un <strong style="color:var(--danger)">Falso Negativo</strong> (decirle a un paciente maligno que es benigno) es mucho más peligroso que un Falso Positivo. Por esto, un modelo con mayor Recall es preferible en contextos médicos, incluso si sacrifica algo de Precisión.</p>
+          </div>
+          <div>
+            <p style="font-weight:600; margin-bottom:8px;">¿Qué es el AUC-ROC?</p>
+            <p style="color:var(--muted); font-size:0.85rem;">El área bajo la curva ROC mide la capacidad del modelo para distinguir entre clases independientemente del umbral. Un AUC de 1.0 es perfecto. Un valor por encima de 0.97 indica un modelo con excelente poder discriminativo.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ABOUT ══ -->
+    <div id="tab-about" class="tab-panel">
+      <div class="section-title">Sobre el Proyecto</div>
+      <div class="section-sub">Clasificador de cáncer de mama entrenado con el dataset WDBC (UCI Machine Learning Repository).</div>
+
+      <div class="about-grid">
+        <div class="card">
+          <div class="card-title">🗄 Dataset — WDBC</div>
+          <div class="flow-step">
+            <div class="step-num">569</div>
+            <div><div class="step-title">Muestras totales</div><div class="step-desc">357 Benignas · 212 Malignas</div></div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">30</div>
+            <div><div class="step-title">Características</div><div class="step-desc">Media, Error Estándar y Peor valor de 10 atributos celulares</div></div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">80/20</div>
+            <div><div class="step-title">División Train/Test</div><div class="step-desc">Estratificada con random_state=42</div></div>
+          </div>
+          <div style="margin-top:14px; font-size:0.8rem; color:var(--muted);">
+            Fuente: <span class="tag tag-blue">archive.ics.uci.edu</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">⚙ Pipeline de ML</div>
+          <div class="flow-step">
+            <div class="step-num">1</div>
+            <div><div class="step-title">Carga y Limpieza</div><div class="step-desc">Pandas · LabelEncoder (B=0, M=1)</div></div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">2</div>
+            <div><div class="step-title">Escalado de Features</div><div class="step-desc">StandardScaler (μ=0, σ=1) — crítico para LR y MLP</div></div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">3</div>
+            <div><div class="step-title">Entrenamiento</div><div class="step-desc">LR (max_iter=2000) · MLP (64→32, ReLU, Adam)</div></div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">4</div>
+            <div><div class="step-title">Exportación a JSON</div><div class="step-desc">Pesos y parámetros → inferencia en JavaScript</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🧠 Arquitectura MLP</div>
+          <div style="font-family:var(--font-mono); font-size:0.8rem; line-height:2.2; color:var(--muted);">
+            <div>Input Layer&nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:var(--accent)">30 neuronas</span></div>
+            <div>Hidden Layer 1 → <span style="color:var(--accent2)">64 neuronas (ReLU)</span></div>
+            <div>Hidden Layer 2 → <span style="color:var(--accent2)">32 neuronas (ReLU)</span></div>
+            <div>Output Layer&nbsp;&nbsp;&nbsp;→ <span style="color:var(--warn)">2 neuronas (Softmax)</span></div>
+            <div style="margin-top:10px;">Optimizer: <span class="tag tag-blue">Adam</span> <span class="tag tag-green">Early Stopping</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🌐 Arquitectura Web</div>
+          <div style="font-size:0.85rem; color:var(--muted); line-height:1.9;">
+            <p>La inferencia ocurre <strong style="color:var(--text)">100% en el navegador</strong> sin backend:</p>
+            <ul style="margin-top:8px; padding-left:18px;">
+              <li>Los parámetros del modelo están en <span class="tag tag-green">models.json</span></li>
+              <li>Escalado, forward-pass y sigmoid implementados en JS puro</li>
+              <li>Sin dependencias de librerías externas</li>
+              <li>Compatible con <span class="tag tag-blue">GitHub Pages</span> (hosting estático)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:4px;">
+        <div class="card-title">📦 Instrucciones — Deploy en GitHub Pages</div>
+        <div style="font-family:var(--font-mono); font-size:0.8rem; color:var(--muted); line-height:2.2;">
+          <div>1. Crear repositorio en <span style="color:var(--accent)">github.com</span> → ej: <code style="color:var(--text)">mi-usuario/breast-scan-ai</code></div>
+          <div>2. Subir <span style="color:var(--accent)">index.html</span> y <span style="color:var(--accent)">models.json</span> al repositorio</div>
+          <div>3. Settings → Pages → Source: <span style="color:var(--accent2)">Deploy from a branch → main → / (root)</span></div>
+          <div>4. Esperar ~60 segundos → URL disponible en <span style="color:var(--accent)">mi-usuario.github.io/breast-scan-ai</span></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+//  ESTADO GLOBAL
+// ════════════════════════════════════════════════
+let MODEL = null;          // Datos del JSON
+let activeModel = 'lr';    // 'lr' | 'mlp'
+const FEAT_LABELS = {
+  mean_radius:            "Radio (Media)",
+  mean_texture:           "Textura (Media)",
+  mean_perimeter:         "Perímetro (Media)",
+  mean_area:              "Área (Media)",
+  mean_smoothness:        "Suavidad (Media)",
+  mean_compactness:       "Compacidad (Media)",
+  mean_concavity:         "Concavidad (Media)",
+  mean_concave_points:    "Puntos Cóncavos (M)",
+  mean_symmetry:          "Simetría (Media)",
+  mean_fractal_dimension: "Dim. Fractal (M)",
+  se_radius:              "Radio (SE)",
+  se_texture:             "Textura (SE)",
+  se_perimeter:           "Perímetro (SE)",
+  se_area:                "Área (SE)",
+  se_smoothness:          "Suavidad (SE)",
+  se_compactness:         "Compacidad (SE)",
+  se_concavity:           "Concavidad (SE)",
+  se_concave_points:      "Puntos Cóncavos (SE)",
+  se_symmetry:            "Simetría (SE)",
+  se_fractal_dimension:   "Dim. Fractal (SE)",
+  worst_radius:           "Radio (Worst)",
+  worst_texture:          "Textura (Worst)",
+  worst_perimeter:        "Perímetro (Worst)",
+  worst_area:             "Área (Worst)",
+  worst_smoothness:       "Suavidad (Worst)",
+  worst_compactness:      "Compacidad (Worst)",
+  worst_concavity:        "Concavidad (Worst)",
+  worst_concave_points:   "P. Cóncavos (Worst)",
+  worst_symmetry:         "Simetría (Worst)",
+  worst_fractal_dimension:"Dim. Fractal (Worst)"
+};
+
+// ════════════════════════════════════════════════
+//  CARGA DEL MODELO
+// ════════════════════════════════════════════════
+async function loadModel() {
+  try {
+    setLoading("Cargando parámetros del modelo...");
+    const res = await fetch('models.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    MODEL = await res.json();
+    setLoading("Construyendo formularios...");
+    buildFeatureForms();
+    buildMetricsUI();
+    document.getElementById('model-status').textContent =
+      `LR: ${(MODEL.logistic_regression.metrics.accuracy*100).toFixed(1)}% · MLP: ${(MODEL.neural_network.metrics.accuracy*100).toFixed(1)}%`;
+    document.getElementById('lr-acc-side').textContent =
+      `Accuracy: ${(MODEL.logistic_regression.metrics.accuracy*100).toFixed(1)}%`;
+    document.getElementById('mlp-acc-side').textContent =
+      `Accuracy: ${(MODEL.neural_network.metrics.accuracy*100).toFixed(1)}%`;
+    hideLoading();
+    toast("✅ Modelos cargados correctamente");
+  } catch(e) {
+    document.getElementById('loading-text').textContent =
+      "Error: No se encontró models.json. Asegúrate de que está en la misma carpeta que index.html.";
+    console.error(e);
+  }
+}
+
+// ════════════════════════════════════════════════
+//  MATH HELPERS
+// ════════════════════════════════════════════════
+const sigmoid = z => 1 / (1 + Math.exp(-z));
+const relu    = x => Math.max(0, x);
+
+function dot(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+  return s;
+}
+
+function matVecMul(W, x) {
+  // W is [n_out][n_in], x is [n_in] → returns [n_out]
+  const out = new Array(W.length);
+  for (let i = 0; i < W.length; i++) {
+    let s = 0;
+    for (let j = 0; j < x.length; j++) s += W[i][j] * x[j];
+    out[i] = s;
+  }
+  return out;
+}
+
+function softmax(arr) {
+  const max = Math.max(...arr);
+  const exps = arr.map(x => Math.exp(x - max));
+  const sum  = exps.reduce((a,b) => a+b, 0);
+  return exps.map(e => e / sum);
+}
+
+// ════════════════════════════════════════════════
+//  ESCALADO
+// ════════════════════════════════════════════════
+function scale(x) {
+  const mu  = MODEL.scaler.mean;
+  const sig = MODEL.scaler.scale;
+  return x.map((v, i) => (v - mu[i]) / sig[i]);
+}
+
+// ════════════════════════════════════════════════
+//  INFERENCIA — REGRESIÓN LOGÍSTICA
+// ════════════════════════════════════════════════
+function predictLR(xRaw) {
+  const xs = scale(xRaw);
+  const z  = dot(xs, MODEL.logistic_regression.params.coef)
+             + MODEL.logistic_regression.params.intercept;
+  const prob = sigmoid(z);
+  return { label: prob >= 0.5 ? 1 : 0, prob_malign: prob };
+}
+
+// ════════════════════════════════════════════════
+//  INFERENCIA — RED NEURONAL (MLP)
+// ════════════════════════════════════════════════
+function predictMLP(xRaw) {
+  const layers  = MODEL.neural_network.layers;
+  let activation = scale(xRaw);
+
+  // Forward pass through hidden layers (ReLU)
+  for (let l = 0; l < layers.length - 1; l++) {
+    const W = layers[l].weights;   // shape [n_out][n_in] — sklearn stores coefs_ as [n_in][n_out]
+    // sklearn coefs_: [n_in × n_out], so W[j] = [n_out] weights for input j
+    // We need output[i] = sum_j(W[j][i] * x[j]) + b[i]
+    const b = layers[l].biases;
+    const n_out = b.length;
+    const z = new Array(n_out).fill(0);
+    for (let j = 0; j < activation.length; j++) {
+      for (let i = 0; i < n_out; i++) {
+        z[i] += W[j][i] * activation[j];
+      }
+    }
+    activation = z.map((v, i) => relu(v + b[i]));
+  }
+
+  // Last layer (softmax)
+  const lastL = layers[layers.length - 1];
+  const W = lastL.weights;
+  const b = lastL.biases;
+  const n_out = b.length;
+  const z = new Array(n_out).fill(0);
+  for (let j = 0; j < activation.length; j++) {
+    for (let i = 0; i < n_out; i++) {
+      z[i] += W[j][i] * activation[j];
+    }
+  }
+  const logits = z.map((v, i) => v + b[i]);
+  const probs  = softmax(logits);
+  const label  = probs[1] >= 0.5 ? 1 : 0;
+  return { label, prob_malign: probs[1] };
+}
+
+function predict(xRaw) {
+  return activeModel === 'lr' ? predictLR(xRaw) : predictMLP(xRaw);
+}
+
+// ════════════════════════════════════════════════
+//  CONSTRUIR FORMULARIOS
+// ════════════════════════════════════════════════
+function buildFeatureForms() {
+  const names = MODEL.feature_names;
+  const means = MODEL.feature_stats.mean;
+
+  const groups = { mean: [], se: [], worst: [] };
+  names.forEach((n, i) => {
+    const key = n.startsWith('mean') ? 'mean' : n.startsWith('se') ? 'se' : 'worst';
+    groups[key].push({ name: n, idx: i, mean: means[i] });
+  });
+
+  const render = (gridId, items) => {
+    const grid = document.getElementById(gridId);
+    grid.innerHTML = '';
+    items.forEach(({name, idx, mean}) => {
+      const label = FEAT_LABELS[name] || name;
+      const step  = mean < 1 ? '0.0001' : mean < 10 ? '0.01' : '0.1';
+      grid.innerHTML += `
+        <div class="feat-group">
+          <label>${label}</label>
+          <input type="number" id="f_${idx}" value="${mean.toFixed(4)}" step="${step}" min="0">
+        </div>`;
+    });
+  };
+
+  render('grid-mean',  groups.mean);
+  render('grid-se',    groups.se);
+  render('grid-worst', groups.worst);
+}
+
+function getFeatureValues() {
+  return MODEL.feature_names.map((_, i) => {
+    const el = document.getElementById(`f_${i}`);
+    return el ? parseFloat(el.value) : 0;
+  });
+}
+
+function fillDefaults() {
+  MODEL.feature_names.forEach((_, i) => {
+    const el = document.getElementById(`f_${i}`);
+    if (el) el.value = MODEL.feature_stats.mean[i].toFixed(4);
+  });
+  hideResult();
+}
+
+// Fill with a random test sample
+function fillSample(diag) {
+  const label = diag === 'M' ? 1 : 0;
+  const samples = MODEL.test_data.filter(d => d.true_label === label);
+  if (!samples.length) return;
+  const sample = samples[Math.floor(Math.random() * samples.length)];
+  sample.features.forEach((v, i) => {
+    const el = document.getElementById(`f_${i}`);
+    if (el) el.value = v.toFixed(4);
+  });
+  hideResult();
+  toast(`Ejemplo ${diag === 'M' ? 'Maligno' : 'Benigno'} cargado`);
+}
+
+// ════════════════════════════════════════════════
+//  PREDICCIÓN INDIVIDUAL
+// ════════════════════════════════════════════════
+function runIndividual() {
+  if (!MODEL) return;
+  const x = getFeatureValues();
+  if (x.some(isNaN)) { toast("⚠ Revisa los valores — alguno no es numérico"); return; }
+
+  const res = predict(x);
+  showResult(res);
+}
+
+function showResult(res) {
+  const box   = document.getElementById('result-individual');
+  const icon  = document.getElementById('res-icon');
+  const label = document.getElementById('res-label');
+  const sub   = document.getElementById('res-sub');
+  const fill  = document.getElementById('res-fill');
+  const probT = document.getElementById('res-prob-text');
+
+  box.className = 'result-box show ' + (res.label === 1 ? 'malign' : 'benign');
+  icon.textContent  = res.label === 1 ? '⚠' : '✅';
+  label.textContent = res.label === 1 ? 'MALIGNO' : 'BENIGNO';
+  label.style.color = res.label === 1 ? 'var(--danger)' : 'var(--accent)';
+  sub.textContent   = `Probabilidad de malignidad según ${activeModel === 'lr' ? 'Regresión Logística' : 'Red Neuronal MLP'}`;
+
+  const pct = (res.prob_malign * 100).toFixed(1);
+  fill.style.background = res.label === 1 ? 'var(--danger)' : 'var(--accent)';
+  setTimeout(() => { fill.style.width = pct + '%'; }, 50);
+  probT.textContent = `P(Maligno) = ${pct}% · P(Benigno) = ${(100 - pct).toFixed(1)}%`;
+}
+
+function hideResult() {
+  const box = document.getElementById('result-individual');
+  box.className = 'result-box';
+  const fill = document.getElementById('res-fill');
+  fill.style.width = '0%';
+}
+
+// ════════════════════════════════════════════════
+//  PREDICCIÓN POR LOTES
+// ════════════════════════════════════════════════
+function runBatchTest() {
+  if (!MODEL) return;
+  const samples = MODEL.test_data;
+  processBatch(samples, activeModel === 'lr' ? 'Regresión Logística' : 'Red Neuronal MLP');
+}
+
+function processBatch(samples, modelName) {
+  const prog = document.getElementById('batch-progress');
+  const fill = document.getElementById('batch-fill');
+  prog.style.display = 'block';
+
+  let tp=0, tn=0, fp=0, fn=0;
+  let done = 0;
+
+  function step() {
+    const chunk = 10;
+    for (let c = 0; c < chunk && done < samples.length; c++, done++) {
+      const s = samples[done];
+      const res = predict(s.features);
+      const pred = res.label, real = s.true_label;
+      if (real === 1 && pred === 1) tp++;
+      else if (real === 0 && pred === 0) tn++;
+      else if (real === 0 && pred === 1) fp++;
+      else fn++;
+    }
+    fill.style.width = (done/samples.length*100) + '%';
+    if (done < samples.length) { requestAnimationFrame(step); return; }
+
+    // Done
+    prog.style.display = 'none';
+    showBatchResults({tp,tn,fp,fn}, samples.length, modelName);
+  }
+  step();
+}
+
+function showBatchResults({tp,tn,fp,fn}, total, modelName) {
+  const accuracy  = (tp+tn)/total;
+  const precision = tp/(tp+fp) || 0;
+  const recall    = tp/(tp+fn) || 0;
+  const f1        = 2*precision*recall/(precision+recall) || 0;
+  const specificity = tn/(tn+fp) || 0;
+
+  document.getElementById('cm-model-name').textContent = modelName;
+  document.getElementById('cm-tn').innerHTML = `<span class="cm-val">${tn}</span><span class="cm-lbl">Verdadero Neg.</span>`;
+  document.getElementById('cm-fp').innerHTML = `<span class="cm-val">${fp}</span><span class="cm-lbl">Falso Pos.</span>`;
+  document.getElementById('cm-fn').innerHTML = `<span class="cm-val">${fn}</span><span class="cm-lbl">Falso Neg.</span>`;
+  document.getElementById('cm-tp').innerHTML = `<span class="cm-val">${tp}</span><span class="cm-lbl">Verdadero Pos.</span>`;
+
+  const grid = document.getElementById('batch-metrics-grid');
+  const tiles = [
+    { val: (accuracy*100).toFixed(1)+'%',  lbl: 'Accuracy'    },
+    { val: (precision*100).toFixed(1)+'%', lbl: 'Precisión'   },
+    { val: (recall*100).toFixed(1)+'%',    lbl: 'Recall'      },
+    { val: (f1*100).toFixed(1)+'%',        lbl: 'F1-Score'    },
+    { val: (specificity*100).toFixed(1)+'%',lbl:'Especificidad'},
+  ];
+  grid.innerHTML = tiles.map(t => `
+    <div class="metric-tile">
+      <span class="val">${t.val}</span>
+      <span class="lbl">${t.lbl}</span>
+    </div>`).join('');
+
+  document.getElementById('batch-results').style.display = 'block';
+  document.getElementById('batch-results').scrollIntoView({behavior:'smooth'});
+  toast(`✅ ${total} muestras procesadas`);
+}
+
+// CSV loader
+function loadCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  readCSVFile(file);
+}
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  const file = event.dataTransfer.files[0];
+  if (file) readCSVFile(file);
+}
+function readCSVFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.trim().split('\n');
+    const samples = [];
+    lines.forEach(line => {
+      const parts = line.split(',').map(s => s.trim());
+      if (parts.length < 32) return;
+      const diag = parts[1].toUpperCase();
+      const label = diag === 'M' ? 1 : 0;
+      const features = parts.slice(2, 32).map(parseFloat);
+      if (features.some(isNaN)) return;
+      samples.push({ features, true_label: label });
+    });
+    if (samples.length === 0) { toast("⚠ No se pudo parsear el archivo"); return; }
+    processBatch(samples, `${activeModel === 'lr' ? 'LR' : 'MLP'} · CSV (${samples.length} muestras)`);
+  };
+  reader.readAsText(file);
+}
+
+// ════════════════════════════════════════════════
+//  MÉTRICAS UI
+// ════════════════════════════════════════════════
+function buildMetricsUI() {
+  const lrM  = MODEL.logistic_regression.metrics;
+  const mlpM = MODEL.neural_network.metrics;
+
+  // Update grid for active model
+  updateMetricsGrid(activeModel === 'lr' ? lrM : mlpM);
+
+  // Comparison table
+  const rows = [
+    { label:'Accuracy',    lr: lrM.accuracy,  mlp: mlpM.accuracy,  fmt: v => (v*100).toFixed(1)+'%' },
+    { label:'Precisión',   lr: lrM.precision, mlp: mlpM.precision, fmt: v => (v*100).toFixed(1)+'%' },
+    { label:'Recall',      lr: lrM.recall,    mlp: mlpM.recall,    fmt: v => (v*100).toFixed(1)+'%' },
+    { label:'F1-Score',    lr: lrM.f1,        mlp: mlpM.f1,        fmt: v => (v*100).toFixed(1)+'%' },
+    { label:'AUC-ROC',     lr: lrM.auc,       mlp: mlpM.auc,       fmt: v => v.toFixed(4) },
+  ];
+
+  const tbody = document.getElementById('comparison-table');
+  tbody.innerHTML = rows.map(r => {
+    const lrBetter  = r.lr  >= r.mlp;
+    const mlpBetter = r.mlp >= r.lr;
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:11px 14px; color:var(--muted); font-size:0.85rem;">${r.label}</td>
+      <td style="padding:11px 14px; text-align:center; font-family:var(--font-mono); font-size:0.9rem; color:${lrBetter?'var(--accent)':'var(--text)'};">
+        ${r.fmt(r.lr)} ${lrBetter && r.lr!==r.mlp?'🏆':''}
+      </td>
+      <td style="padding:11px 14px; text-align:center; font-family:var(--font-mono); font-size:0.9rem; color:${mlpBetter&&r.mlp>r.lr?'var(--accent2)':'var(--text)'};">
+        ${r.fmt(r.mlp)} ${mlpBetter && r.mlp>r.lr?'🏆':''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updateMetricsGrid(m) {
+  const grid = document.getElementById('metrics-lr-grid');
+  const tiles = [
+    { val: (m.accuracy*100).toFixed(1)+'%',  lbl: 'Accuracy'   },
+    { val: (m.precision*100).toFixed(1)+'%', lbl: 'Precisión'  },
+    { val: (m.recall*100).toFixed(1)+'%',    lbl: 'Recall'     },
+    { val: (m.f1*100).toFixed(1)+'%',        lbl: 'F1-Score'   },
+    { val: m.auc.toFixed(4),                 lbl: 'AUC-ROC'    },
+  ];
+  grid.innerHTML = tiles.map(t => `
+    <div class="metric-tile">
+      <span class="val">${t.val}</span>
+      <span class="lbl">${t.lbl}</span>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════
+//  SELECCIÓN DE MODELO
+// ════════════════════════════════════════════════
+function selectModel(m) {
+  activeModel = m;
+  document.getElementById('card-lr').className  = 'model-card' + (m==='lr' ?' active':'');
+  document.getElementById('card-mlp').className = 'model-card' + (m==='mlp'?' active':'');
+  hideResult();
+  document.getElementById('batch-results').style.display = 'none';
+  if (MODEL) updateMetricsGrid(m === 'lr' ? MODEL.logistic_regression.metrics : MODEL.neural_network.metrics);
+  toast(`Modelo activo: ${m === 'lr' ? 'Regresión Logística' : 'Red Neuronal MLP'}`);
+}
+
+// ════════════════════════════════════════════════
+//  UI HELPERS
+// ════════════════════════════════════════════════
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+}
+
+function setLoading(msg) {
+  document.getElementById('loading-overlay').style.display = 'grid';
+  document.getElementById('loading-text').textContent = msg;
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+loadModel();
+</script>
+</body>
+</html>
