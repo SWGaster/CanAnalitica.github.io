@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BreastScan AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050a0f;--surf:#0c1520;--surf2:#101c2a;--brd:#1a2e42;--accent:#00d4aa;--blue:#0099ff;--red:#ff4f6d;--warn:#ffaa00;--txt:#e2eaf0;--muted:#5a7a94;--mono:"Space Mono",monospace;--sans:"DM Sans",sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:15px;line-height:1.6;min-height:100vh}
+#splash{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:999;transition:opacity .4s ease}
+#splash.hide{opacity:0;pointer-events:none}
+.splash-logo{font-family:var(--mono);font-size:1.2rem;color:var(--accent);letter-spacing:.1em}
+.spinner{width:44px;height:44px;border:3px solid var(--brd);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.splash-msg{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+.splash-err{display:none;background:rgba(255,79,109,.08);border:1px solid rgba(255,79,109,.25);border-radius:10px;padding:16px 24px;max-width:380px;text-align:center;font-size:.82rem;color:var(--red);line-height:1.7}
+.splash-err a{color:var(--blue);text-decoration:underline;cursor:pointer}
+header{border-bottom:1px solid var(--brd);padding:16px 36px;display:flex;align-items:center;gap:14px;position:sticky;top:0;background:rgba(5,10,15,.94);backdrop-filter:blur(14px);z-index:100}
+.pulse{width:30px;height:30px;border:2px solid var(--accent);border-radius:50%;display:grid;place-items:center;animation:glow 2s ease-in-out infinite;flex-shrink:0}
+.pulse::after{content:"";width:11px;height:11px;background:var(--accent);border-radius:50%;animation:gi 2s ease-in-out infinite}
+@keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(0,212,170,.4)}50%{box-shadow:0 0 0 9px rgba(0,212,170,0)}}
+@keyframes gi{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.75)}}
+header h1{font-family:var(--mono);font-size:.95rem;color:var(--accent);letter-spacing:.08em}
+#hdr-st{font-size:.68rem;color:var(--muted);margin-left:auto;font-family:var(--mono);white-space:nowrap}
+.shell{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 57px)}
+aside{border-right:1px solid var(--brd);padding:22px 14px;background:var(--surf);display:flex;flex-direction:column;gap:5px}
+.slbl{font-family:var(--mono);font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;padding:4px 10px;margin-top:14px}
+.slbl:first-child{margin-top:0}
+.nav-btn{background:none;border:1px solid transparent;color:var(--muted);font-family:var(--sans);font-size:.83rem;padding:9px 12px;border-radius:8px;cursor:pointer;text-align:left;transition:all .2s;display:flex;align-items:center;gap:9px;width:100%}
+.nav-btn:hover{color:var(--txt);background:var(--surf2);border-color:var(--brd)}
+.nav-btn.active{color:var(--accent);background:rgba(0,212,170,.07);border-color:rgba(0,212,170,.25)}
+.mcard{border:1px solid var(--brd);border-radius:10px;padding:10px 12px;cursor:pointer;transition:all .2s;margin-bottom:3px}
+.mcard:hover{border-color:var(--blue)}
+.mcard.active{border-color:var(--accent);background:rgba(0,212,170,.06)}
+.mcard-name{font-size:.78rem;font-weight:700;color:var(--txt)}
+.mcard-acc{font-family:var(--mono);font-size:.66rem;color:var(--accent);margin-top:2px}
+main{padding:30px 38px;overflow-y:auto}
+.tab{display:none}
+.tab.active{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.stitle{font-family:var(--mono);font-size:1.1rem;color:var(--txt);margin-bottom:5px}
+.ssub{font-size:.83rem;color:var(--muted);margin-bottom:22px;max-width:500px}
+.card{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:20px 24px;margin-bottom:20px}
+.ctitle{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:14px}
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:18px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:.64rem;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em}
+.fg input{background:var(--bg);border:1px solid var(--brd);border-radius:7px;color:var(--txt);font-family:var(--mono);font-size:.76rem;padding:7px 8px;width:100%;transition:border-color .2s;-moz-appearance:textfield}
+.fg input::-webkit-outer-spin-button,.fg input::-webkit-inner-spin-button{-webkit-appearance:none}
+.fg input:focus{outline:none;border-color:var(--accent)}
+.btn{padding:9px 18px;border-radius:8px;border:none;font-family:var(--sans);font-size:.83rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-p{background:var(--accent);color:#000}
+.btn-p:hover{background:#00f0c0;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,212,170,.3)}
+.btn-s{background:var(--surf2);color:var(--txt);border:1px solid var(--brd)}
+.btn-s:hover{border-color:var(--blue)}
+.btns{display:flex;gap:9px;flex-wrap:wrap}
+.rbox{display:none;border-radius:12px;padding:22px 26px;margin-top:20px;border:1px solid}
+.rbox.benign{border-color:var(--accent);background:rgba(0,212,170,.07)}
+.rbox.malign{border-color:var(--red);background:rgba(255,79,109,.07)}
+.rbox.show{display:flex;align-items:center;gap:20px;animation:fade .4s}
+.r-icon{font-size:2.6rem;flex-shrink:0}
+.r-lbl{font-family:var(--mono);font-size:1.35rem;font-weight:700}
+.r-sub{font-size:.8rem;color:var(--muted);margin-top:3px}
+.r-bar{margin-top:10px;height:6px;background:var(--brd);border-radius:99px;overflow:hidden;width:220px}
+.r-fill{height:100%;border-radius:99px;transition:width .8s cubic-bezier(.22,1,.36,1)}
+.r-pct{font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:4px}
+.mgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:20px}
+.mtile{background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:15px 10px;text-align:center}
+.mtile .v{font-family:var(--mono);font-size:1.5rem;font-weight:700;color:var(--accent);display:block}
+.mtile .l{font-size:.64rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.cm-wrap{display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap;padding-left:84px;position:relative}
+.cm-y{position:absolute;left:0;top:50%;transform:translateY(-50%) rotate(-90deg);font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
+table.cm{border-collapse:separate;border-spacing:5px}
+table.cm th{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center;padding:4px 8px}
+table.cm td{border-radius:9px;width:90px;height:82px;text-align:center;vertical-align:middle;font-family:var(--mono)}
+.cm-tp{background:rgba(0,212,170,.14);border:1px solid rgba(0,212,170,.28)}
+.cm-tn{background:rgba(0,153,255,.11);border:1px solid rgba(0,153,255,.22)}
+.cm-fp{background:rgba(255,170,0,.09);border:1px solid rgba(255,170,0,.22)}
+.cm-fn{background:rgba(255,79,109,.11);border:1px solid rgba(255,79,109,.28)}
+.cmv{font-size:1.8rem;font-weight:700;display:block}
+.cml{font-size:.56rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.cm-x{text-align:center;font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding-top:6px}
+.cm-leg{font-size:.76rem;color:var(--muted);max-width:200px;line-height:1.9}
+.dot{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:middle}
+.drop{border:2px dashed var(--brd);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:14px}
+.drop:hover,.drop.drag{border-color:var(--accent);background:rgba(0,212,170,.04)}
+.drop p{color:var(--muted);font-size:.8rem;margin-top:6px}
+.bprog{display:none;background:var(--brd);border-radius:99px;height:5px;margin:10px 0;overflow:hidden}
+.bfill{height:100%;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:99px;transition:width .2s}
+.cmp-t{width:100%;border-collapse:collapse;font-size:.82rem}
+.cmp-t th{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--brd);text-align:center}
+.cmp-t th:first-child{text-align:left}
+.cmp-t td{padding:9px 12px;border-bottom:1px solid rgba(26,46,66,.5);text-align:center;font-family:var(--mono);font-size:.83rem}
+.cmp-t td:first-child{text-align:left;color:var(--muted);font-family:var(--sans);font-size:.8rem}
+.win{color:var(--accent)}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.kv-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(26,46,66,.6);font-size:.83rem}
+.kv-row:last-child{border-bottom:none}
+.kv-key{color:var(--muted)}
+.kv-val{font-family:var(--mono);font-size:.78rem;color:var(--txt)}
+.arch-line{font-family:var(--mono);font-size:.78rem;color:var(--muted);padding:6px 0;border-bottom:1px solid rgba(26,46,66,.4);display:flex;justify-content:space-between}
+.arch-line:last-child{border-bottom:none}
+#toast{position:fixed;bottom:22px;right:22px;background:var(--surf);border:1px solid var(--brd);border-radius:9px;padding:10px 15px;font-size:.8rem;transform:translateY(70px);opacity:0;transition:all .28s cubic-bezier(.22,1,.36,1);z-index:300;max-width:270px}
+#toast.show{transform:translateY(0);opacity:1}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--brd);border-radius:99px}
+@media(max-width:820px){.shell{grid-template-columns:1fr}aside{border-right:none;border-bottom:1px solid var(--brd);flex-direction:row;flex-wrap:wrap;padding:10px}main{padding:18px}.fgrid{grid-template-columns:1fr 1fr}.mgrid{grid-template-columns:repeat(3,1fr)}.about-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="splash-logo">&#x1F9EC; BreastScan AI</div>
+  <div class="spinner"></div>
+  <div class="splash-msg" id="splash-msg">Cargando models.json...</div>
+  <div class="splash-err" id="splash-err">
+    No se encontro <strong>models.json</strong>.<br>
+    Asegurate de que ambos archivos estan en la misma carpeta del repositorio.<br><br>
+    <a onclick="location.reload()">Reintentar</a>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<header>
+  <div class="pulse"></div>
+  <h1>BreastScan AI</h1>
+  <div id="hdr-st">-</div>
+</header>
+
+<div class="shell">
+  <aside>
+    <div class="slbl">Navegacion</div>
+    <button class="nav-btn active" onclick="showTab('individual')" data-tab="individual">&#x1F52C; Prediccion Individual</button>
+    <button class="nav-btn" onclick="showTab('batch')" data-tab="batch">&#x1F4CA; Prediccion por Lotes</button>
+    <button class="nav-btn" onclick="showTab('metrics')" data-tab="metrics">&#x1F4C8; Metricas</button>
+    <button class="nav-btn" onclick="showTab('about')" data-tab="about">&#x1F4D6; Informacion</button>
+    <div class="slbl">Modelo Activo</div>
+    <div class="mcard active" id="card-lr" onclick="selectModel('lr')">
+      <div class="mcard-name">Regresion Logistica</div>
+      <div class="mcard-acc" id="lr-acc">-</div>
+    </div>
+    <div class="mcard" id="card-mlp" onclick="selectModel('mlp')">
+      <div class="mcard-name">Red Neuronal (MLP)</div>
+      <div class="mcard-acc" id="mlp-acc">-</div>
+    </div>
+  </aside>
+
+  <main>
+    <div id="tab-individual" class="tab active">
+      <div class="stitle">Prediccion Individual</div>
+      <div class="ssub">Ingrese los valores de las 30 caracteristicas celulares para obtener una prediccion inmediata.</div>
+      <div class="card"><div class="ctitle">Caracteristicas Medias (Mean)</div><div class="fgrid" id="grid-mean"></div></div>
+      <div class="card"><div class="ctitle">Error Estandar (SE)</div><div class="fgrid" id="grid-se"></div></div>
+      <div class="card"><div class="ctitle">Peores Valores (Worst)</div><div class="fgrid" id="grid-worst"></div></div>
+      <div class="btns">
+        <button class="btn btn-p" onclick="runIndividual()">Predecir Diagnostico</button>
+        <button class="btn btn-s" onclick="fillDefaults()">Valores por Defecto</button>
+        <button class="btn btn-s" onclick="fillSample(1)">Ejemplo Maligno</button>
+        <button class="btn btn-s" onclick="fillSample(0)">Ejemplo Benigno</button>
+      </div>
+      <div id="rbox" class="rbox">
+        <div class="r-icon" id="r-icon"></div>
+        <div>
+          <div class="r-lbl" id="r-lbl"></div>
+          <div class="r-sub" id="r-sub"></div>
+          <div class="r-bar"><div class="r-fill" id="r-fill" style="width:0%"></div></div>
+          <div class="r-pct" id="r-pct"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-batch" class="tab">
+      <div class="stitle">Prediccion por Lotes</div>
+      <div class="ssub">Evalue el modelo sobre el conjunto de prueba o cargue su propio CSV.</div>
+      <div class="card">
+        <div class="ctitle">Fuente de Datos</div>
+        <div class="btns" style="margin-bottom:16px">
+          <button class="btn btn-p" onclick="runBatchTest()">Usar Conjunto de Prueba</button>
+          <label class="btn btn-s" style="cursor:pointer">Cargar CSV<input type="file" id="csv-up" accept=".csv,.data" style="display:none" onchange="loadCSV(event)"></label>
+        </div>
+        <div class="drop" id="bdrop" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleCSVDrop(event)">
+          <div style="font-size:1.6rem">&#x1F4C4;</div>
+          <p>Arrastra un .csv o .data con formato WDBC</p>
+          <p style="font-size:.7rem;margin-top:2px">ID, Diagnostico (B/M), 30 features numericas</p>
+        </div>
+        <div class="bprog" id="bprog"><div class="bfill" id="bfill" style="width:0%"></div></div>
+      </div>
+      <div id="batch-out" style="display:none">
+        <div class="mgrid" id="batch-met"></div>
+        <div class="card">
+          <div class="ctitle">Matriz de Confusion - <span id="cm-name">-</span></div>
+          <div class="cm-wrap">
+            <div class="cm-y">Valor Real</div>
+            <div>
+              <table class="cm">
+                <thead><tr><th></th><th>Pred. Benigno</th><th>Pred. Maligno</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <th style="text-align:right;padding-right:8px;font-family:var(--mono);font-size:.6rem;color:var(--muted)">Real Benigno</th>
+                    <td class="cm-tn"><span class="cmv" id="cm-tn">-</span><span class="cml">Verd. Neg.</span></td>
+                    <td class="cm-fp"><span class="cmv" id="cm-fp">-</span><span class="cml">Falso Pos.</span></td>
+                  </tr>
+                  <tr>
+                    <th style="text-align:right;padding-right:8px;font-family:var(--mono);font-size:.6rem;color:var(--muted)">Real Maligno</th>
+                    <td class="cm-fn"><span class="cmv" id="cm-fn">-</span><span class="cml">Falso Neg.</span></td>
+                    <td class="cm-tp"><span class="cmv" id="cm-tp">-</span><span class="cml">Verd. Pos.</span></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="cm-x">Valor Predicho</div>
+            </div>
+            <div class="cm-leg">
+              <div><span class="dot" style="background:rgba(0,153,255,.35)"></span>Verdadero Negativo</div>
+              <div><span class="dot" style="background:rgba(0,212,170,.35)"></span>Verdadero Positivo</div>
+              <div><span class="dot" style="background:rgba(255,170,0,.35)"></span>Falso Positivo</div>
+              <div><span class="dot" style="background:rgba(255,79,109,.35)"></span>Falso Negativo</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-metrics" class="tab">
+      <div class="stitle">Metricas de Desempeno</div>
+      <div class="ssub">Resultados sobre el conjunto de prueba (30% del dataset).</div>
+      <div class="mgrid" id="met-active"></div>
+      <div class="card">
+        <div class="ctitle">Comparativa de Modelos</div>
+        <table class="cmp-t">
+          <thead><tr><th>Metrica</th><th style="color:var(--accent)">Reg. Logistica</th><th style="color:var(--blue)">Red Neuronal MLP</th></tr></thead>
+          <tbody id="cmp-body"></tbody>
+        </table>
+      </div>
+      <div class="card" style="font-size:.83rem;color:var(--muted);line-height:1.9">
+        <div class="ctitle">Interpretacion</div>
+        El <strong style="color:var(--red)">Recall</strong> es la metrica mas critica: un <strong style="color:var(--red)">Falso Negativo</strong> es mucho mas peligroso que un Falso Positivo en oncologia. El <strong style="color:var(--txt)">AUC-ROC</strong> mide el poder discriminativo global.
+      </div>
+    </div>
+
+    <div id="tab-about" class="tab">
+      <div class="stitle">Informacion del Proyecto</div>
+      <div class="ssub">Clasificador de cancer de mama usando el dataset WDBC de UCI.</div>
+      <div class="about-grid">
+        <div class="card">
+          <div class="ctitle">Dataset WDBC</div>
+          <div class="kv-row"><span class="kv-key">Fuente</span><span class="kv-val">UCI ML Repository</span></div>
+          <div class="kv-row"><span class="kv-key">Muestras</span><span class="kv-val">569 (357 B / 212 M)</span></div>
+          <div class="kv-row"><span class="kv-key">Features</span><span class="kv-val">30 numericas</span></div>
+          <div class="kv-row"><span class="kv-key">Division</span><span class="kv-val">70% train / 30% test</span></div>
+          <div class="kv-row"><span class="kv-key">Escalado</span><span class="kv-val">StandardScaler</span></div>
+        </div>
+        <div class="card">
+          <div class="ctitle">Modelos Entrenados</div>
+          <div class="kv-row"><span class="kv-key">Reg. Logistica</span><span class="kv-val" id="lr-detail">-</span></div>
+          <div class="kv-row"><span class="kv-key">Red Neuronal</span><span class="kv-val" id="mlp-detail">-</span></div>
+          <div class="kv-row"><span class="kv-key">Optimizador</span><span class="kv-val">Adam</span></div>
+          <div class="kv-row"><span class="kv-key">Activacion</span><span class="kv-val">ReLU + Sigmoid</span></div>
+          <div class="kv-row"><span class="kv-key">Inferencia</span><span class="kv-val">100% navegador</span></div>
+        </div>
+        <div class="card">
+          <div class="ctitle">Arquitectura MLP</div>
+          <div class="arch-line"><span>Input</span><span style="color:var(--accent)">30 neuronas</span></div>
+          <div class="arch-line"><span>Hidden 1</span><span style="color:var(--blue)">64 / ReLU</span></div>
+          <div class="arch-line"><span>Hidden 2</span><span style="color:var(--blue)">32 / ReLU</span></div>
+          <div class="arch-line"><span>Output</span><span style="color:var(--warn)">1 / Sigmoid</span></div>
+        </div>
+        <div class="card">
+          <div class="ctitle">Como actualizar el modelo</div>
+          <div class="kv-row"><span class="kv-key">1. Entrenar</span><span class="kv-val">Colab notebook</span></div>
+          <div class="kv-row"><span class="kv-key">2. Descargar</span><span class="kv-val">models.json</span></div>
+          <div class="kv-row"><span class="kv-key">3. Subir</span><span class="kv-val">GitHub (reemplazar)</span></div>
+          <div class="kv-row"><span class="kv-key">4. Listo</span><span class="kv-val">La pagina se actualiza</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let MODEL=null,activeModel="lr";
+const LABELS={mean_radius:"Radio (M)",mean_texture:"Textura (M)",mean_perimeter:"Perimetro (M)",mean_area:"Area (M)",mean_smoothness:"Suavidad (M)",mean_compactness:"Compacidad (M)",mean_concavity:"Concavidad (M)",mean_concave_points:"P.Concavos (M)",mean_symmetry:"Simetria (M)",mean_fractal_dimension:"D.Fractal (M)",se_radius:"Radio (SE)",se_texture:"Textura (SE)",se_perimeter:"Perimetro (SE)",se_area:"Area (SE)",se_smoothness:"Suavidad (SE)",se_compactness:"Compacidad (SE)",se_concavity:"Concavidad (SE)",se_concave_points:"P.Concavos (SE)",se_symmetry:"Simetria (SE)",se_fractal_dimension:"D.Fractal (SE)",worst_radius:"Radio (W)",worst_texture:"Textura (W)",worst_perimeter:"Perimetro (W)",worst_area:"Area (W)",worst_smoothness:"Suavidad (W)",worst_compactness:"Compacidad (W)",worst_concavity:"Concavidad (W)",worst_concave_points:"P.Concavos (W)",worst_symmetry:"Simetria (W)",worst_fractal_dimension:"D.Fractal (W)"};
+
+async function loadModel(){
+  try{
+    const res=await fetch("models.json");
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    MODEL=await res.json();
+    document.getElementById("splash-msg").textContent="Iniciando...";
+    initApp();
+    setTimeout(()=>{
+      document.getElementById("splash").classList.add("hide");
+      setTimeout(()=>document.getElementById("splash").style.display="none",400);
+    },300);
+  }catch(e){
+    document.querySelector(".spinner").style.display="none";
+    document.getElementById("splash-msg").style.display="none";
+    document.getElementById("splash-err").style.display="block";
+  }
+}
+
+const sigmoid=z=>1/(1+Math.exp(-Math.max(-500,Math.min(500,z))));
+const relu=x=>Math.max(0,x);
+function scale(x){return x.map((v,i)=>(v-MODEL.scaler.mean[i])/MODEL.scaler.scale[i]);}
+function predictLR(xRaw){const xs=scale(xRaw),coef=MODEL.logistic_regression.params.coef;let z=MODEL.logistic_regression.params.intercept;for(let i=0;i<xs.length;i++)z+=xs[i]*coef[i];const p=sigmoid(z);return{label:p>=.5?1:0,prob:p};}
+function predictMLP(xRaw){const layers=MODEL.neural_network.layers;let act=scale(xRaw);for(let l=0;l<layers.length-1;l++){const W=layers[l].weights,b=layers[l].biases,nO=b.length,z=new Array(nO).fill(0);for(let j=0;j<act.length;j++)for(let i=0;i<nO;i++)z[i]+=W[j][i]*act[j];act=z.map((v,i)=>relu(v+b[i]));}const lL=layers[layers.length-1];let logit=lL.biases[0];for(let j=0;j<act.length;j++)logit+=lL.weights[j][0]*act[j];const p=sigmoid(logit);return{label:p>=.5?1:0,prob:p};}
+function predict(x){return activeModel==="lr"?predictLR(x):predictMLP(x);}
+
+function initApp(){
+  const lrM=MODEL.logistic_regression.metrics,mlM=MODEL.neural_network.metrics;
+  document.getElementById("hdr-st").textContent="LR: "+(lrM.accuracy*100).toFixed(1)+"% / MLP: "+(mlM.accuracy*100).toFixed(1)+"%";
+  document.getElementById("lr-acc").textContent="Accuracy: "+(lrM.accuracy*100).toFixed(1)+"%";
+  document.getElementById("mlp-acc").textContent="Accuracy: "+(mlM.accuracy*100).toFixed(1)+"%";
+  document.getElementById("lr-detail").textContent="Acc "+(lrM.accuracy*100).toFixed(1)+"% AUC "+lrM.auc.toFixed(3);
+  document.getElementById("mlp-detail").textContent="Acc "+(mlM.accuracy*100).toFixed(1)+"% AUC "+mlM.auc.toFixed(3);
+  buildForms();buildMetrics();
+}
+
+function buildForms(){
+  const names=MODEL.feature_names,means=MODEL.feature_stats.mean,grp={mean:[],se:[],worst:[]};
+  names.forEach((n,i)=>{const k=n.startsWith("mean")?"mean":n.startsWith("se")?"se":"worst";grp[k].push({name:n,i,mean:means[i]});});
+  const render=(id,items)=>{const g=document.getElementById(id);g.innerHTML="";items.forEach(({name,i,mean})=>{const lbl=LABELS[name]||name,step=mean<1?"0.0001":mean<10?"0.01":"0.1";g.innerHTML+=`<div class="fg"><label>${lbl}</label><input type="number" id="f_${i}" value="${mean.toFixed(4)}" step="${step}" min="0"></div>`;});};
+  render("grid-mean",grp.mean);render("grid-se",grp.se);render("grid-worst",grp.worst);
+}
+function getX(){return MODEL.feature_names.map((_,i)=>parseFloat(document.getElementById("f_"+i).value));}
+function fillDefaults(){MODEL.feature_names.forEach((_,i)=>{const el=document.getElementById("f_"+i);if(el)el.value=MODEL.feature_stats.mean[i].toFixed(4);});hideResult();}
+function fillSample(label){const pool=MODEL.test_data.filter(d=>d.true_label===label);if(!pool.length)return;const s=pool[Math.floor(Math.random()*pool.length)];s.features.forEach((v,i)=>{const el=document.getElementById("f_"+i);if(el)el.value=v.toFixed(4);});hideResult();toast(label===1?"Ejemplo Maligno cargado":"Ejemplo Benigno cargado");}
+
+function runIndividual(){const x=getX();if(x.some(isNaN)){toast("Revisa los valores numericos");return;}const res=predict(x),box=document.getElementById("rbox");box.className="rbox show "+(res.label?"malign":"benign");document.getElementById("r-icon").textContent=res.label?"!":"OK";const lbl=document.getElementById("r-lbl");lbl.textContent=res.label?"MALIGNO":"BENIGNO";lbl.style.color=res.label?"var(--red)":"var(--accent)";document.getElementById("r-sub").textContent="Probabilidad de malignidad / "+(activeModel==="lr"?"Regresion Logistica":"Red Neuronal MLP");const pct=(res.prob*100).toFixed(1),fill=document.getElementById("r-fill");fill.style.background=res.label?"var(--red)":"var(--accent)";setTimeout(()=>fill.style.width=pct+"%",50);document.getElementById("r-pct").textContent="P(Maligno)="+pct+"% / P(Benigno)="+(100-pct).toFixed(1)+"%";}
+function hideResult(){document.getElementById("rbox").className="rbox";document.getElementById("r-fill").style.width="0%";}
+
+function runBatchTest(){processBatch(MODEL.test_data,(activeModel==="lr"?"Reg. Logistica":"Red Neuronal MLP")+" / Test Set");}
+function processBatch(samples,name){document.getElementById("batch-out").style.display="none";const prog=document.getElementById("bprog"),fill=document.getElementById("bfill");prog.style.display="block";fill.style.width="0%";let tp=0,tn=0,fp=0,fn=0,done=0;function step(){for(let c=0;c<10&&done<samples.length;c++,done++){const s=samples[done],r=predict(s.features).label,real=s.true_label;if(real===1&&r===1)tp++;else if(real===0&&r===0)tn++;else if(real===0&&r===1)fp++;else fn++;}fill.style.width=(done/samples.length*100)+"%";if(done<samples.length){requestAnimationFrame(step);return;}prog.style.display="none";renderBatch({tp,tn,fp,fn},samples.length,name);}step();}
+function renderBatch({tp,tn,fp,fn},total,name){const acc=(tp+tn)/total,prec=tp/(tp+fp)||0,rec=tp/(tp+fn)||0,f1=2*prec*rec/(prec+rec)||0,spec=tn/(tn+fp)||0;document.getElementById("cm-name").textContent=name;document.getElementById("cm-tn").textContent=tn;document.getElementById("cm-fp").textContent=fp;document.getElementById("cm-fn").textContent=fn;document.getElementById("cm-tp").textContent=tp;document.getElementById("batch-met").innerHTML=[{v:(acc*100).toFixed(1)+"%",l:"Accuracy"},{v:(prec*100).toFixed(1)+"%",l:"Precision"},{v:(rec*100).toFixed(1)+"%",l:"Recall"},{v:(f1*100).toFixed(1)+"%",l:"F1-Score"},{v:(spec*100).toFixed(1)+"%",l:"Especificidad"}].map(t=>`<div class="mtile"><span class="v">${t.v}</span><span class="l">${t.l}</span></div>`).join("");document.getElementById("batch-out").style.display="block";document.getElementById("batch-out").scrollIntoView({behavior:"smooth"});toast(total+" muestras procesadas");}
+function loadCSV(e){const f=e.target.files[0];if(f)parseCSV(f);}
+function handleCSVDrop(e){e.preventDefault();document.getElementById("bdrop").classList.remove("drag");const f=e.dataTransfer.files[0];if(f)parseCSV(f);}
+function parseCSV(file){const r=new FileReader();r.onload=e=>{const lines=e.target.result.trim().split("\n"),samples=[];lines.forEach(line=>{const p=line.split(",").map(s=>s.trim());if(p.length<32)return;const label=p[1].toUpperCase()==="M"?1:0,feats=p.slice(2,32).map(parseFloat);if(!feats.some(isNaN))samples.push({features:feats,true_label:label});});if(!samples.length){toast("No se pudo parsear el archivo");return;}processBatch(samples,(activeModel==="lr"?"LR":"MLP")+" / CSV ("+samples.length+" muestras)");};r.readAsText(file);}
+
+function buildMetrics(){renderMetGrid(MODEL.logistic_regression.metrics);const lrM=MODEL.logistic_regression.metrics,mlM=MODEL.neural_network.metrics;document.getElementById("cmp-body").innerHTML=[{l:"Accuracy",lr:lrM.accuracy,ml:mlM.accuracy},{l:"Precision",lr:lrM.precision,ml:mlM.precision},{l:"Recall",lr:lrM.recall,ml:mlM.recall},{l:"F1-Score",lr:lrM.f1,ml:mlM.f1},{l:"AUC-ROC",lr:lrM.auc,ml:mlM.auc}].map(r=>{const lw=r.lr>=r.ml,mw=r.ml>r.lr;return`<tr><td>${r.l}</td><td class="${lw?"win":""}">${(r.lr*100).toFixed(1)}% ${lw&&r.lr!==r.ml?"T":""}</td><td class="${mw?"win":""}">${(r.ml*100).toFixed(1)}% ${mw?"T":""}</td></tr>`;}).join("");}
+function renderMetGrid(m){document.getElementById("met-active").innerHTML=[{v:(m.accuracy*100).toFixed(1)+"%",l:"Accuracy"},{v:(m.precision*100).toFixed(1)+"%",l:"Precision"},{v:(m.recall*100).toFixed(1)+"%",l:"Recall"},{v:(m.f1*100).toFixed(1)+"%",l:"F1-Score"},{v:m.auc.toFixed(4),l:"AUC-ROC"}].map(t=>`<div class="mtile"><span class="v">${t.v}</span><span class="l">${t.l}</span></div>`).join("");}
+
+function selectModel(m){activeModel=m;document.getElementById("card-lr").className="mcard"+(m==="lr"?" active":"");document.getElementById("card-mlp").className="mcard"+(m==="mlp"?" active":"");hideResult();document.getElementById("batch-out").style.display="none";renderMetGrid(m==="lr"?MODEL.logistic_regression.metrics:MODEL.neural_network.metrics);toast("Modelo: "+(m==="lr"?"Regresion Logistica":"Red Neuronal MLP"));}
+function showTab(name){document.querySelectorAll(".tab").forEach(e=>e.classList.remove("active"));document.querySelectorAll(".nav-btn").forEach(e=>e.classList.remove("active"));document.getElementById("tab-"+name).classList.add("active");document.querySelector(`[data-tab="${name}"]`).classList.add("active");}
+let toastT;
+function toast(msg){const el=document.getElementById("toast");el.textContent=msg;el.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove("show"),2800);}
+
+loadModel();
+</script>
+</body>
+</html>
